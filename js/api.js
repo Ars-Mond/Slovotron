@@ -35,6 +35,26 @@ async function kontekstno_query({
     return await response.json();
 }
 
+async function sendWebhookEvent(event = '', data = {}) {
+    if (!webhook_url || !event) return;
+
+    try {
+        await fetch(webhook_url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                channel: channel_name,
+                event: event,
+                data: data
+            })
+        });
+    } catch (error) {
+        console.warn(`Не удалось отправить webhook событие "${event}"`, error);
+    }
+}
+
 async function generate_secret_word() {
     let room_id;
     let is_bugged = true;
@@ -49,6 +69,10 @@ async function generate_secret_word() {
 
         const data = await kontekstno_query({ method: 'random-challenge' });
         room_id = data.id;
+        current_secret_word_data = {
+            challenge_id: room_id,
+            secret_word: data.word || data.secret_word || data.answer || null
+        };
 
         // Проверка на забагованное слово.
         // Если для "банан" возвращается 0, значит игра сломана и надо перезапустить.
