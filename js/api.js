@@ -90,7 +90,7 @@ async function generate_secret_word() {
                         challenge_id: room_id,
                         last_word_rank: 1
                     });
-                    secret_word = secretWordResponse.word || null;
+                    secret_word = secretWordResponse?.word || null;
                 } catch (secretWordError) {
                     console.warn('Не удалось получить секретное слово через tip(last_word_rank=1):', secretWordError);
                 }
