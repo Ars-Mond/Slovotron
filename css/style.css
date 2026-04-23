@@ -74,7 +74,7 @@ nav li:active span {
 
 #menu-button-tip {
     display: none;
-    opacity: 0.25;
+    opacity: 0.4;
 }
 
 #menu-button-tip:hover {
@@ -329,9 +329,7 @@ input[type="submit"]:disabled {
 
 /* custom background */
 
-body.has-custom-bg {
-    
-}
+body.has-custom-bg {}
 
 body.has-custom-bg .guessing .msg .msg-content {
     background-color: rgba(16, 16, 24, 0.78);

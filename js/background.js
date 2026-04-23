@@ -145,7 +145,7 @@ if (bgClearBtn) {
 
 if (bgOpacitySlider) {
     bgOpacitySlider.addEventListener('input', () => {
-        const opacity = parseInt(bgOpacitySlider.value, 10) || BG_DEFAULT_OPACITY;
+        const opacity = parseInt(bgOpacitySlider.value, 10);
         if (bgEl) bgEl.style.opacity = opacity / 100;
         if (bgOpacityValue) bgOpacityValue.textContent = opacity + '%';
         localStorage.setItem(BG_OPACITY_KEY, opacity);
