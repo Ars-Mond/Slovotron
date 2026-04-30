@@ -56,6 +56,7 @@ async function use_tip(user = '', force = false) {
     // console.log('tip_requests:', tip_requests_count, 'tip_required:', tip_required);
 
     update_tip_progress();
+    markOverlayActivity(); // высветляем оверлей при использовании подсказки тоже
 
     if (tip_requests_count < tip_required && !force) {
         addTextToLastWords('Нужно человек для использования подсказки: <b>' + (tip_required - tip_requests_count) + '</b>');

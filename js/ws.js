@@ -6,6 +6,7 @@ const isObsOverlayMode = () => document.body.classList.contains('obs-overlay') |
 
 function setOverlayIdleState(isIdle) {
     if (!isObsOverlayMode() || overlay_idle_timeout <= 0) return;
+    if (isIdle && typeof is_game_finished !== 'undefined' && is_game_finished) return; // не делаем оверлей полупрозрачным пока показывается экран победы
     is_overlay_idle = isIdle;
     document.body.classList.toggle('overlay-words-idle', isIdle);
 }
