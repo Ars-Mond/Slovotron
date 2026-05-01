@@ -250,7 +250,7 @@ footer.tech-things {
 footer.obs-overlay-footer {
     display: none;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     margin-bottom: 20px;
 }
 
