@@ -6,6 +6,14 @@ const saveBtn = document.getElementById('save-settings-btn');
 const obsLinkInput = document.getElementById('obs-link');
 let validationTimeout;
 
+function parseBooleanSetting(value) {
+    return String(value).toLowerCase() === 'true' || String(value) === '1';
+}
+
+function getSettingValue(urlParams, paramName, storageName) {
+    return urlParams.has(paramName) ? urlParams.get(paramName) : localStorage.getItem(storageName);
+}
+
 function generateObsLink() {
     if (!channelInput || !channelInput.value.trim()) {
         if (obsLinkInput) {
@@ -116,8 +124,8 @@ function loadSettings() {
     }
     const storedChannel = urlChannel || localStorage.getItem('channel_name');
     const storedRestartTime = urlParams.get('restart_time') || localStorage.getItem('restart_time');
-    const storedAvatarInput = urlParams.get('win_avatar_enable') || localStorage.getItem('win_avatar_enable');
-    const storedSoundInput = urlParams.get('sound_enable') || localStorage.getItem('sound_enable');
+    const storedAvatarInput = getSettingValue(urlParams, 'win_avatar_enable', 'win_avatar_enable');
+    const storedSoundInput = getSettingValue(urlParams, 'sound_enable', 'sound_enable');
 
     if (storedChannel) {
         channel_name = storedChannel;
@@ -129,13 +137,13 @@ function loadSettings() {
         if (restartInput) restartInput.value = restart_time;
     }
 
-    if (storedAvatarInput) {
-        win_avatar_enable = storedAvatarInput === 'true';
+    if (storedAvatarInput !== null) {
+        win_avatar_enable = parseBooleanSetting(storedAvatarInput);
         if (avatarInput) avatarInput.checked = win_avatar_enable;
     }
 
-    if (storedSoundInput) {
-        sound_enable = storedSoundInput === 'true';
+    if (storedSoundInput !== null) {
+        sound_enable = parseBooleanSetting(storedSoundInput);
         if (soundInput) soundInput.checked = sound_enable;
     }
 
