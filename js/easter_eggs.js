@@ -18,6 +18,16 @@ const celebrities = [
         id: "quantum075",
         tags: ["quantum0", "quantum", "quantum075", "квантум"],
         img: ["https://bot.quantum0.ru/static/images/stickers/1.webp", "https://bot.quantum0.ru/static/images/stickers/2.webp", "https://bot.quantum0.ru/static/images/stickers/3.webp", "https://bot.quantum0.ru/static/images/stickers/4.webp", "https://bot.quantum0.ru/static/images/stickers/5.webp"]
+    },
+	{
+        id: "hatome",
+        tags: ["hatome", "хатоме", "хатомка"],
+        img: ["hatome_1.gif", "hatome_2.png", "hatome_3.png", "hatome_4.gif"]
+    },
+	{
+        id: "mrwhiskanson",
+        tags: ["mrwhiskanson", "вискансон"],
+        img: ["mrwhiskanson_1.gif", "mrwhiskanson_2.png", "mrwhiskanson_3.png", "mrwhiskanson_4.png"]
     }
 ];
 
