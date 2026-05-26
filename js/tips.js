@@ -1,6 +1,7 @@
 let tip_requests_users = new Set();
 let tip_last_reset_time = Date.now();
 let tip_cooldown_time = 1000 * 60 * 1;
+let tip_in_progress = false; // пока подсказка выдаётся — повторные вызовы игнорируем
 let tip_distance_tune_multiplier = 1.5; // механика подсказок такова что апишка контекстно дает слово вдвое ближе чем last_word_rank. мультипликатор нужен чтобы это поправить как нам надо. например: лучшая дистанция 100, мультипликатор 1.5, подсказка даст дальность 75 вместо 50.
 const tip_menu_button = document.getElementById('menu-button-tip');
 
@@ -63,6 +64,10 @@ async function use_tip(user = '', force = false) {
         return;
     }
 
+    // гард ставим синхронно до await, иначе одновременные вызовы пройдут гейт
+    if (tip_in_progress) return;
+    tip_in_progress = true;
+
     // Play activation animation
     tip_progress_bar.classList.add('tip-activated');
 
@@ -76,14 +81,23 @@ async function use_tip(user = '', force = false) {
     if (Math.ceil(fine_tuned_distance / 2) == best_found_distance) fine_tuned_distance = best_found_distance;
 
     // запрос подсказки
-    const tip_word = await kontekstno_query({
-        method: 'tip',
-        challenge_id: secret_word_id,
-        last_word_rank: fine_tuned_distance
-    });
+    let tip_word;
+    try {
+        tip_word = await kontekstno_query({
+            method: 'tip',
+            challenge_id: secret_word_id,
+            last_word_rank: fine_tuned_distance
+        });
+    } catch (e) {
+        console.error('tip query failed', e);
+        tip_progress_bar.classList.remove('tip-activated');
+        tip_in_progress = false;
+        return;
+    }
     if (!tip_word.distance) {
         console.error('tip_word.distance is undefined', tip_word);
         tip_progress_bar.classList.remove('tip-activated');
+        tip_in_progress = false;
         return;
     }
     console.log('tip_word:', tip_word);
@@ -118,6 +132,7 @@ async function use_tip(user = '', force = false) {
 function reset_tips() {
     tip_requests_users.clear(); // очищаем список пользователей которые использовали подсказку
     tip_last_reset_time = Date.now(); // обновляем время последнего использования подсказки
+    tip_in_progress = false;
     update_tip_progress();
 }
 
