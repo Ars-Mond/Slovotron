@@ -94,7 +94,7 @@ async function use_tip(user = '', force = false) {
         tip_in_progress = false;
         return;
     }
-    if (!tip_word.distance) {
+    if (!tip_word?.distance) {
         console.error('tip_word.distance is undefined', tip_word);
         tip_progress_bar.classList.remove('tip-activated');
         tip_in_progress = false;
