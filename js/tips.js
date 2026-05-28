@@ -90,14 +90,12 @@ async function use_tip(user = '', force = false) {
         });
     } catch (e) {
         console.error('tip query failed', e);
-        tip_progress_bar.classList.remove('tip-activated');
-        tip_in_progress = false;
+        abort_tip();
         return;
     }
     if (!tip_word?.distance) {
         console.error('tip_word.distance is undefined', tip_word);
-        tip_progress_bar.classList.remove('tip-activated');
-        tip_in_progress = false;
+        abort_tip();
         return;
     }
     console.log('tip_word:', tip_word);
@@ -133,6 +131,14 @@ function reset_tips() {
     tip_requests_users.clear(); // очищаем список пользователей которые использовали подсказку
     tip_last_reset_time = Date.now(); // обновляем время последнего использования подсказки
     tip_in_progress = false;
+    update_tip_progress();
+}
+
+// откат при ошибке: снимаем guard и чистим голоса, чтобы можно было переспросить. кулдаун не трогаем
+function abort_tip() {
+    tip_progress_bar.classList.remove('tip-activated');
+    tip_in_progress = false;
+    tip_requests_users.clear();
     update_tip_progress();
 }
 
