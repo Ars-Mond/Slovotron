@@ -58,6 +58,9 @@ async function kontekstno_query({
             let errorText = '';
             try {
                 errorText = await response.text();
+                if (errorText.length > 200) {
+                    errorText = errorText.substring(0, 200) + '...';
+                }
             } catch {}
             throw new Error(
                 `HTTP ${response.status} ${response.statusText} ${errorText}`
