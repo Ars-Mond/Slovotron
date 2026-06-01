@@ -31,13 +31,14 @@ function create_chat_connection(channel_name = '') {
 
         // Проверяем на действия модераторов
         const isModerator =
+            user.mod ||
             user.badges?.broadcaster ||
             user.badges?.lead_moderator ||
             user.badges?.moderator;
 
         const command = message.toLowerCase();
 
-        if (isModerator && (command.startsWith('!sres') || command.startsWith('!словотрон-рес'))) {
+        if (isModerator && !is_game_finished && (command.startsWith('!sres') || command.startsWith('!словотрон-рес'))) {
             reset_round();
             secret_word_id = await generate_secret_word();
             sendWebhookEvent('game-new', {
