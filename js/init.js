@@ -39,12 +39,14 @@ function create_chat_connection(channel_name = '') {
         const command = message.toLowerCase();
 
         if (isModerator && !is_game_finished && (command.startsWith('!sres') || command.startsWith('!словотрон-рес'))) {
-            reset_round();
+            is_game_finished = true;
             secret_word_id = await generate_secret_word();
+            reset_round();
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
                 secret_word: current_secret_word_data?.secret_word || null
             });
+            is_game_finished = false;
             return;
         }
 
