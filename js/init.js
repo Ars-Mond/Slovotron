@@ -84,10 +84,17 @@ function create_chat_connection(channel_name = '') {
 }
 
 async function runQueue() {
-    await process_message(wordQueue[0].user, wordQueue[0].color, wordQueue[0].msg)
-    wordQueue.shift()
-    if (wordQueue.length > 0) {
-        runQueue()
+    // Always shift the processed item, even if process_message throws.
+    // Otherwise the queue stalls forever and chat messages stop being handled.
+    while (wordQueue.length > 0) {
+        const { user, color, msg } = wordQueue[0];
+        try {
+            await process_message(user, color, msg);
+        } catch (e) {
+            console.error('process_message failed:', e);
+        } finally {
+            wordQueue.shift();
+        }
     }
 }
 
