@@ -109,7 +109,7 @@ async function app() {
 
             // получение секретного слова для отгадывания
             secret_word_id = await generate_secret_word();
-            console.log('ID секретного слова: ', secret_word_id);
+            console.log('Ключ игры: ', secret_word_id);
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
                 secret_word: current_secret_word_data?.secret_word || null
