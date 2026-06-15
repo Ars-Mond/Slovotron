@@ -41,6 +41,8 @@ function update_tip_progress() {
 }
 
 async function use_tip(user = '', force = false) {
+    // Tips are unavailable on backends without a hint endpoint (e.g. wordgun).
+    if (!backend_supports_tips()) return;
     // console.log('enter "use_tip"', user);
     if (user && tip_requests_users.has(user) && !force) return;
     if (!best_found_distance) best_found_distance = kontekstno_api_tips_max_distance;
@@ -83,11 +85,7 @@ async function use_tip(user = '', force = false) {
     // запрос подсказки
     let tip_word;
     try {
-        tip_word = await kontekstno_query({
-            method: 'tip',
-            challenge_id: secret_word_id,
-            last_word_rank: fine_tuned_distance
-        });
+        tip_word = await get_tip(secret_word_id, fine_tuned_distance);
     } catch (e) {
         console.error('tip query failed', e);
         abort_tip();
