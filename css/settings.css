@@ -120,6 +120,18 @@
     color: #FFF;
 }
 
+#settings .backend-warning {
+    margin-top: 8px;
+    max-width: 300px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    border: 1px solid #8a6d1a;
+    background: rgba(255, 193, 7, 0.12);
+    color: #ffd87a;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
 #settings .setting:last-child {
     margin-bottom: 0;
 }
