@@ -97,14 +97,10 @@ async function process_message(user, nickname_color, word, force_win = false) {
         if (force_win) {
             word_check = { distance: 1 };
         } else {
-            word_check = await kontekstno_query({
-                method: 'score',
-                word: word,
-                challenge_id: secret_word_id
-            });
+            word_check = await score_word(word, secret_word_id);
         }
     } catch (err) {
-        console.warn('Ошибка kontekstno_query:', err);
+        console.warn('Ошибка проверки слова:', err);
         addTextToLastWords(word + ' ошибка API');
         return;
     }
@@ -301,13 +297,14 @@ async function resetRoundTimeout(time) {
 function reset_round() {
     last_words_container.innerHTML = '';
     best_match_container.innerHTML = '';
-    tip_menu_button.style.display = 'block';
+    // The tip mechanic only exists on backends that expose a hint endpoint.
+    tip_menu_button.style.display = backend_supports_tips() ? 'block' : 'none';
     checked_words.clear();
     roundStartTime = Date.now();
     uniqUsers.clear();
     uniqWords = repeatWords = 0;
     reset_tips();
-    best_found_distance = kontekstno_api_tips_max_distance;
+    best_found_distance = backend_max_distance();
     markOverlayActivity();
 }
 

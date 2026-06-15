@@ -115,24 +115,65 @@ async function sendWebhookEvent(event = '', data = {}) {
     }
 }
 
-async function generate_secret_word() {
-    let room_id;
-    let is_bugged = true;
-    let retry_count = 0;
-    const max_retries = 5;
+// --- Game backends ----------------------------------------------------------
+// Slovotron can talk to two stateless word-guessing backends. Each one exposes
+// the same interface so the rest of the game stays backend-agnostic:
+//   createGame()          -> { gameId, secretWord }
+//   score(gameId, word)   -> { distance }   (distance falsy => not in vocabulary)
+//   tip(gameId, lastRank) -> { word, distance }   (optional; null if unsupported)
 
-    while (is_bugged) {
-        if (retry_count >= max_retries) {
-            show_fullscreen_error('Ошибка получения секретного слова.<br>Пожалуйста, попробуйте зайти позже.');
-            throw new Error('Превышено количество попыток получения секретного слова.');
+const WORDGUN_BASE_URL = 'https://api.wordgun.ru/v1';
+
+async function wordgun_request(path, { method = 'GET', body = null } = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+        const response = await fetch(`${WORDGUN_BASE_URL}${path}`, {
+            method,
+            signal: controller.signal,
+            headers: {
+                'Accept': 'application/json',
+                ...(body ? { 'Content-Type': 'application/json' } : {})
+            },
+            body: body ? JSON.stringify(body) : undefined
+        });
+
+        if (!response.ok) {
+            let errorBody = null;
+            try { errorBody = await response.json(); } catch {}
+            const error = new Error(`Wordgun HTTP ${response.status}: ${errorBody?.error || response.statusText}`);
+            error.status = response.status;
+            error.code = errorBody?.code;
+            throw error;
         }
 
-        const data = await kontekstno_query({ method: 'random-challenge' });
-        room_id = data.id;
+        return await response.json();
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error('Таймаут запроса к Wordgun API');
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
 
-        // Проверка на забагованное слово.
-        // Если для "банан" возвращается 0, значит игра сломана и надо перезапустить.
-        try {
+const GAME_BACKENDS = {
+    // контекстно.рф — original backend. Opaque challenge_id, "distance" score,
+    // supports hint words via the tip endpoint and discloses the secret word.
+    kontekstno: {
+        id: 'kontekstno',
+        label: 'контекстно.рф',
+        supportsTips: true,
+        maxDistance: kontekstno_api_tips_max_distance,
+
+        async createGame() {
+            const data = await kontekstno_query({ method: 'random-challenge' });
+            const room_id = data.id;
+
+            // Проверка на забагованное слово.
+            // Если для "банан" возвращается 0, значит игра сломана и надо перезапустить.
             const check = await kontekstno_query({
                 method: 'score',
                 word: 'банан',
@@ -140,36 +181,138 @@ async function generate_secret_word() {
             });
 
             if (check.distance === 0) {
-                console.warn(`Слово ID ${room_id} забаговано (дистанция для "банан" = 0). Попытка ${retry_count + 1}/${max_retries}...`);
-                retry_count++;
-            } else {
-                let secret_word = null;
-                try {
-                    const secretWordResponse = await kontekstno_query({
-                        method: 'tip',
-                        challenge_id: room_id,
-                        last_word_rank: 1
-                    });
-                    secret_word = secretWordResponse?.word || null;
-                } catch (secretWordError) {
-                    console.warn('Не удалось получить секретное слово через tip(last_word_rank=1):', secretWordError);
-                }
-
-                current_secret_word_data = {
-                    challenge_id: room_id,
-                    secret_word: secret_word
-                };
-                is_bugged = false;
+                throw new Error(`Слово ID ${room_id} забаговано (дистанция для "банан" = 0).`);
             }
+
+            let secret_word = null;
+            try {
+                const secretWordResponse = await kontekstno_query({
+                    method: 'tip',
+                    challenge_id: room_id,
+                    last_word_rank: 1
+                });
+                secret_word = secretWordResponse?.word || null;
+            } catch (secretWordError) {
+                console.warn('Не удалось получить секретное слово через tip(last_word_rank=1):', secretWordError);
+            }
+
+            return { gameId: room_id, secretWord: secret_word };
+        },
+
+        async score(gameId, word) {
+            const result = await kontekstno_query({
+                method: 'score',
+                word: word,
+                challenge_id: gameId
+            });
+            return { distance: result.distance };
+        },
+
+        async tip(gameId, bestRank) {
+            // надо фейкануть дальность лучшего слова чтобы он не уполовинивал близость, а чуть подальше. Например мальтипликатор 1.5 даст 25% приближения вместо 50%
+            let fine_tuned_distance = Math.floor(bestRank * 1.5);
+            // иначе она всегда будет kontekstno_api_max_distance, это магическое число апишки, большую дальность она сбрасывает к kontekstno_api_max_distance
+            if (fine_tuned_distance > kontekstno_api_tips_max_distance) fine_tuned_distance = kontekstno_api_tips_max_distance;
+            // edge case. Если логика апишки (Math.ceil(fine_tuned_distance / 2)) даст такое же значение, как и текущий best_found_distance, то не фейкаем его, чтобы всё не циклилось
+            if (Math.ceil(fine_tuned_distance / 2) == bestRank) fine_tuned_distance = bestRank;
+
+            const result = await kontekstno_query({
+                method: 'tip',
+                challenge_id: gameId,
+                last_word_rank: fine_tuned_distance
+            });
+            return { word: result?.word, distance: result?.distance };
+        }
+    },
+
+    // wordgun.ru — stateless API (see public-api-v1.md). The game lives inside an
+    // opaque token; a guess returns { in_vocab, rank }. The secret word is never
+    // disclosed, but a hint endpoint reveals a word closer than your best rank.
+    wordgun: {
+        id: 'wordgun',
+        label: 'wordgun.ru',
+        supportsTips: true,
+        maxDistance: Infinity,
+
+        async createGame() {
+            const data = await wordgun_request('/games', { method: 'POST' });
+            // Wordgun never reveals the secret word, so it stays null.
+            return { gameId: data.token, secretWord: null };
+        },
+
+        async score(gameId, word) {
+            const result = await wordgun_request('/guess', {
+                method: 'POST',
+                body: { token: gameId, word: word }
+            });
+            // Normalize to the shared { distance } shape: rank is the distance,
+            // an out-of-vocabulary guess has no distance.
+            return { distance: result.in_vocab ? result.rank : undefined };
+        },
+
+        async tip(gameId, bestRank) {
+            // /hint returns a word strictly closer to the secret than best_rank
+            // (clamped to [2, vocab_size] server-side). best_rank is left out until
+            // we have a finite best, so the server returns a far first hint.
+            const body = { token: gameId };
+            if (Number.isFinite(bestRank)) body.best_rank = bestRank;
+            const result = await wordgun_request('/hint', { method: 'POST', body });
+            // { word: null } means no closer word remains.
+            return { word: result?.word ?? null, distance: result?.rank };
+        }
+    }
+};
+
+function getActiveBackend() {
+    return GAME_BACKENDS[game_backend] || GAME_BACKENDS.kontekstno;
+}
+
+function backend_supports_tips() {
+    return !!getActiveBackend().supportsTips;
+}
+
+// The worst/initial rank for the active backend — used to seed best_found_distance
+// so the first real guess always improves on it.
+function backend_max_distance() {
+    return getActiveBackend().maxDistance;
+}
+
+// Score a guess with the active backend. Returns { distance }: a positive number
+// when the word is in vocabulary, undefined otherwise.
+async function score_word(word, gameId) {
+    return getActiveBackend().score(gameId, word);
+}
+
+// Request a hint word from the active backend, or null if it has no tip support.
+async function get_tip(gameId, lastRank) {
+    const backend = getActiveBackend();
+    if (typeof backend.tip !== 'function') return null;
+    return backend.tip(gameId, lastRank);
+}
+
+async function generate_secret_word() {
+    const backend = getActiveBackend();
+    let retry_count = 0;
+    const max_retries = 5;
+
+    while (retry_count < max_retries) {
+        try {
+            const game = await backend.createGame();
+            current_secret_word_data = {
+                challenge_id: game.gameId,
+                secret_word: game.secretWord ?? null
+            };
+            return game.gameId;
         } catch (e) {
-            console.error('Ошибка при проверке слова на баг:', e);
+            console.warn(`Не удалось создать игру (${backend.id}). Попытка ${retry_count + 1}/${max_retries}:`, e);
             retry_count++;
             // Небольшая пауза перед повтором при сетевой ошибке
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
 
-    return room_id;
+    show_fullscreen_error('Ошибка получения секретного слова.<br>Пожалуйста, попробуйте зайти позже.');
+    throw new Error('Превышено количество попыток получения секретного слова.');
 }
 
 function show_fullscreen_error(message) {

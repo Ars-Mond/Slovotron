@@ -25,7 +25,7 @@ function create_chat_connection(channel_name = '') {
 
         // проверка на подсказку, дальше не идем
         if (message.toLowerCase().startsWith('!подска') || message.toLowerCase().startsWith('! подска')) {
-            use_tip(user['username']);
+            if (backend_supports_tips()) use_tip(user['username']);
             return;
         }
 
@@ -109,7 +109,7 @@ async function app() {
 
             // получение секретного слова для отгадывания
             secret_word_id = await generate_secret_word();
-            console.log('ID секретного слова: ', secret_word_id);
+            console.log('Ключ игры: ', secret_word_id);
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
                 secret_word: current_secret_word_data?.secret_word || null
