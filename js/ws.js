@@ -243,6 +243,9 @@ function handle_win(winner_user, winning_word = '') {
     const resetTimeout = (typeof restart_time !== 'undefined' ? restart_time : 20) * 1000;
     let confettiTimeout = Date.now() + (restart_time - 5) * 1000;
     if (restart_time <= 10) { confettiTimeout = Date.now() + 5 * 1000 };
+    // A non-finite restart_time makes the stop check (timeLeft <= 0) never true,
+    // leaving confetti/fireworks running forever — clamp to a short fallback.
+    if (!Number.isFinite(confettiTimeout)) { confettiTimeout = Date.now() + 5 * 1000; }
     confetti_stars(confetti_win(confettiTimeout));
     if (window.innerWidth > 1200) {
         confetti_fireworks(confettiTimeout);

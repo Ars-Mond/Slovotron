@@ -138,8 +138,11 @@ function loadSettings() {
     }
 
     if (storedRestartTime) {
-        restart_time = parseInt(storedRestartTime, 10);
-        if (restartInput) restartInput.value = restart_time;
+        const parsed = parseInt(storedRestartTime, 10);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            restart_time = parsed;
+            if (restartInput) restartInput.value = restart_time;
+        }
     }
 
     if (storedAvatarInput !== null) {
