@@ -304,7 +304,7 @@ function reset_round() {
     uniqUsers.clear();
     uniqWords = repeatWords = 0;
     reset_tips();
-    best_found_distance = kontekstno_api_tips_max_distance;
+    best_found_distance = backend_max_distance();
     markOverlayActivity();
 }
 

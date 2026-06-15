@@ -166,6 +166,7 @@ const GAME_BACKENDS = {
         id: 'kontekstno',
         label: 'контекстно.рф',
         supportsTips: true,
+        maxDistance: kontekstno_api_tips_max_distance,
 
         async createGame() {
             const data = await kontekstno_query({ method: 'random-challenge' });
@@ -207,23 +208,31 @@ const GAME_BACKENDS = {
             return { distance: result.distance };
         },
 
-        async tip(gameId, lastRank) {
+        async tip(gameId, bestRank) {
+            // надо фейкануть дальность лучшего слова чтобы он не уполовинивал близость, а чуть подальше. Например мальтипликатор 1.5 даст 25% приближения вместо 50%
+            let fine_tuned_distance = Math.floor(bestRank * 1.5);
+            // иначе она всегда будет kontekstno_api_max_distance, это магическое число апишки, большую дальность она сбрасывает к kontekstno_api_max_distance
+            if (fine_tuned_distance > kontekstno_api_tips_max_distance) fine_tuned_distance = kontekstno_api_tips_max_distance;
+            // edge case. Если логика апишки (Math.ceil(fine_tuned_distance / 2)) даст такое же значение, как и текущий best_found_distance, то не фейкаем его, чтобы всё не циклилось
+            if (Math.ceil(fine_tuned_distance / 2) == bestRank) fine_tuned_distance = bestRank;
+
             const result = await kontekstno_query({
                 method: 'tip',
                 challenge_id: gameId,
-                last_word_rank: lastRank
+                last_word_rank: fine_tuned_distance
             });
             return { word: result?.word, distance: result?.distance };
         }
     },
 
     // wordgun.ru — stateless API (see public-api-v1.md). The game lives inside an
-    // opaque token; a guess returns { in_vocab, rank }. No hint endpoint and the
-    // secret word is never disclosed.
+    // opaque token; a guess returns { in_vocab, rank }. The secret word is never
+    // disclosed, but a hint endpoint reveals a word closer than your best rank.
     wordgun: {
         id: 'wordgun',
         label: 'wordgun.ru',
-        supportsTips: false,
+        supportsTips: true,
+        maxDistance: Infinity,
 
         async createGame() {
             const data = await wordgun_request('/games', { method: 'POST' });
@@ -241,7 +250,17 @@ const GAME_BACKENDS = {
             return { distance: result.in_vocab ? result.rank : undefined };
         },
 
-        tip: null
+        async tip(gameId, bestRank) {
+            // /hint returns a word strictly closer to the secret than best_rank
+            // (clamped to [2, vocab_size] server-side). The optional `revealed`
+            // field is intentionally omitted. best_rank is left out until we have a
+            // finite best, so the server returns a far first hint.
+            const body = { token: gameId };
+            if (Number.isFinite(bestRank)) body.best_rank = bestRank;
+            const result = await wordgun_request('/hint', { method: 'POST', body });
+            // { word: null } means no closer word remains.
+            return { word: result?.word ?? null, distance: result?.rank };
+        }
     }
 };
 
@@ -251,6 +270,12 @@ function getActiveBackend() {
 
 function backend_supports_tips() {
     return !!getActiveBackend().supportsTips;
+}
+
+// The worst/initial rank for the active backend — used to seed best_found_distance
+// so the first real guess always improves on it.
+function backend_max_distance() {
+    return getActiveBackend().maxDistance;
 }
 
 // Score a guess with the active backend. Returns { distance }: a positive number
