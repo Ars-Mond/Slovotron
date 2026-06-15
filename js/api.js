@@ -252,9 +252,8 @@ const GAME_BACKENDS = {
 
         async tip(gameId, bestRank) {
             // /hint returns a word strictly closer to the secret than best_rank
-            // (clamped to [2, vocab_size] server-side). The optional `revealed`
-            // field is intentionally omitted. best_rank is left out until we have a
-            // finite best, so the server returns a far first hint.
+            // (clamped to [2, vocab_size] server-side). best_rank is left out until
+            // we have a finite best, so the server returns a far first hint.
             const body = { token: gameId };
             if (Number.isFinite(bestRank)) body.best_rank = bestRank;
             const result = await wordgun_request('/hint', { method: 'POST', body });
