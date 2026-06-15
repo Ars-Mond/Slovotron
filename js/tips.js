@@ -83,6 +83,13 @@ async function use_tip(user = '', force = false) {
         abort_tip();
         return;
     }
+    // wordgun /hint returns { word: null } when no closer word remains — not an error,
+    // so give the user feedback instead of logging a misleading failure.
+    if (tip_word && tip_word.word === null) {
+        addTextToLastWords('Ближе слов для подсказки нет');
+        abort_tip();
+        return;
+    }
     if (!tip_word?.distance) {
         console.error('tip_word.distance is undefined', tip_word);
         abort_tip();

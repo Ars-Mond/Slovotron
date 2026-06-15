@@ -6,10 +6,13 @@ function getLeaderboardData() {
     if (!data) return {};
     try {
         const parsed = JSON.parse(data);
-        // Corrupted or legacy storage may hold a non-object; fall back to an empty map.
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        // Corrupted or legacy non-object value: drop it so we don't re-parse garbage every call.
+        localStorage.removeItem(LEADERBOARD_KEY);
+        return {};
     } catch (e) {
         console.error('Failed to parse leaderboard data, resetting:', e);
+        localStorage.removeItem(LEADERBOARD_KEY);
         return {};
     }
 }
