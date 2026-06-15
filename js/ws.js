@@ -221,11 +221,12 @@ function handle_win(winner_user, winning_word = '') {
 
     const winnerAvatar = document.getElementById('winner-avatar');
     winnerAvatar.src = '';
+    // getTwitchUserData returns null on lookup failure (e.g. tip and test wins),
+    // so guard before reading user.logo to avoid a TypeError / unhandled rejection.
     getTwitchUserData(winner_user.username).then((user) => {
-        console.log(user);
         winnerAvatar.classList.toggle('blurred', !win_avatar_enable);
-        winnerAvatar.src = user.logo;
-    });
+        if (user?.logo) winnerAvatar.src = user.logo;
+    }).catch((e) => console.error('avatar load failed:', e));
 
     const winnerBlock = document.getElementById('winner');
     winnerBlock.querySelector('.winner-name').innerText = winner_user['display-name'];
