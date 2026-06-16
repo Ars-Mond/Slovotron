@@ -249,6 +249,8 @@ function handle_win(winner_user, winning_word = '') {
     // A non-finite restart_time makes the stop check (timeLeft <= 0) never true,
     // leaving confetti/fireworks running forever — clamp to a short fallback.
     if (!Number.isFinite(confettiTimeout)) { confettiTimeout = Date.now() + 5 * 1000; }
+    // Never run confetti longer than the cap, even for huge restart_time values.
+    confettiTimeout = Math.min(confettiTimeout, Date.now() + MAX_CONFETTI_MS);
     confetti_stars(confetti_win(confettiTimeout));
     if (window.innerWidth > 1200) {
         confetti_fireworks(confettiTimeout);
@@ -303,6 +305,7 @@ async function resetRoundTimeout(time) {
 function reset_round() {
     last_words_container.innerHTML = '';
     best_match_container.innerHTML = '';
+    stop_confetti();
     // The tip mechanic only exists on backends that expose a hint endpoint.
     tip_menu_button.style.display = backend_supports_tips() ? 'block' : 'none';
     checked_words.clear();
