@@ -4,6 +4,8 @@ const avatarInput = document.getElementById('win-avatar-enable');
 const soundInput = document.getElementById('sound-enable');
 const saveBtn = document.getElementById('save-settings-btn');
 const obsLinkInput = document.getElementById('obs-link');
+const gameBackendInput = document.getElementById('game-backend');
+const backendWarning = document.getElementById('backend-warning');
 let validationTimeout;
 
 function parseBooleanSetting(value) {
@@ -40,6 +42,10 @@ function generateObsLink() {
 
     if (soundInput) {
         params.set('sound_enable', soundInput.checked ? '1' : '0');
+    }
+
+    if (gameBackendInput) {
+        params.set('backend', gameBackendInput.value);
     }
 
     if (webhook_url) {
@@ -133,8 +139,11 @@ function loadSettings() {
     }
 
     if (storedRestartTime) {
-        restart_time = parseInt(storedRestartTime, 10);
-        if (restartInput) restartInput.value = restart_time;
+        const parsed = parseInt(storedRestartTime, 10);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            restart_time = parsed;
+            if (restartInput) restartInput.value = restart_time;
+        }
     }
 
     if (storedAvatarInput !== null) {
@@ -146,6 +155,13 @@ function loadSettings() {
         sound_enable = parseBooleanSetting(storedSoundInput);
         if (soundInput) soundInput.checked = sound_enable;
     }
+
+    const storedBackend = urlParams.get('backend') || localStorage.getItem('game_backend');
+    if (storedBackend && GAME_BACKENDS[storedBackend]) {
+        game_backend = storedBackend;
+    }
+    if (gameBackendInput) gameBackendInput.value = game_backend;
+    updateBackendWarning();
 
     // Генерируем ссылку OBS при загрузке страницы
     generateObsLink();
@@ -169,6 +185,11 @@ if (saveBtn) {
 
         if (soundInput) {
             localStorage.setItem('sound_enable', soundInput.checked);
+        }
+
+        if (gameBackendInput && GAME_BACKENDS[gameBackendInput.value]) {
+            game_backend = gameBackendInput.value;
+            localStorage.setItem('game_backend', game_backend);
         }
 
         // Генерируем ссылку для OBS
@@ -265,6 +286,21 @@ if (avatarInput) {
 
 if (soundInput) {
     soundInput.addEventListener("input", () => {
+        checkFormsValidity();
+    });
+}
+
+// Show a warning when the wordgun backend is selected (it can be region-blocked from some RU IPs).
+function updateBackendWarning() {
+    if (!backendWarning) return;
+    const selected = gameBackendInput ? gameBackendInput.value : game_backend;
+    backendWarning.style.display = selected === 'wordgun' ? 'block' : 'none';
+}
+
+if (gameBackendInput) {
+    gameBackendInput.addEventListener("change", () => {
+        updateBackendWarning();
+        generateObsLink();
         checkFormsValidity();
     });
 }

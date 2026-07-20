@@ -3,12 +3,22 @@ function randomInRange(min, max) {
   return Math.random() * (max - min) + min;
 }
 
+let confettiWinInterval = null;
+let confettiFireworksInterval = null;
+
+// Stop any running confetti/fireworks loops immediately (used on round reset).
+function stop_confetti() {
+  clearInterval(confettiWinInterval);
+  clearInterval(confettiFireworksInterval);
+}
+
 const confetti_win = (endtime) => {
-  const interval = setInterval(function () {
+  clearInterval(confettiWinInterval);
+  confettiWinInterval = setInterval(function () {
     const defaults = { count: 3, spread: 45 };
     const timeLeft = endtime - Date.now();
     if (timeLeft <= 0 || resetTimerPaused) {
-      return clearInterval(interval);
+      return clearInterval(confettiWinInterval);
     }
     confetti(
       Object.assign({}, defaults, {
@@ -34,11 +44,12 @@ const confetti_fireworks = (endtime) => {
     zIndex: 0,
   };
 
-  const interval = setInterval(function () {
+  clearInterval(confettiFireworksInterval);
+  confettiFireworksInterval = setInterval(function () {
     const timeLeft = endtime - Date.now();
 
     if (timeLeft <= 0 || resetTimerPaused) {
-      return clearInterval(interval);
+      return clearInterval(confettiFireworksInterval);
     }
 
     confetti(

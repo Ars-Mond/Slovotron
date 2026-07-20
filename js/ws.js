@@ -97,14 +97,10 @@ async function process_message(user, nickname_color, word, force_win = false) {
         if (force_win) {
             word_check = { distance: 1 };
         } else {
-            word_check = await kontekstno_query({
-                method: 'score',
-                word: word,
-                challenge_id: secret_word_id
-            });
+            word_check = await score_word(word, secret_word_id);
         }
     } catch (err) {
-        console.warn('Ошибка kontekstno_query:', err);
+        console.warn('Ошибка проверки слова:', err);
         addTextToLastWords(word + ' ошибка API');
         return;
     }
@@ -220,12 +216,16 @@ function handle_win(winner_user, winning_word = '') {
     }
 
     const winnerAvatar = document.getElementById('winner-avatar');
-    winnerAvatar.src = '';
-    getTwitchUserData(winner_user.username).then((user) => {
-        console.log(user);
-        winnerAvatar.classList.toggle('blurred', !win_avatar_enable);
-        winnerAvatar.src = user.logo;
-    });
+    // Transparent 1x1 GIF placeholder avoids a broken-image icon when no avatar loads.
+    winnerAvatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    winnerAvatar.classList.toggle('blurred', !win_avatar_enable);
+    // Only hit the Twitch API when the avatar is actually shown. getTwitchUserData
+    // returns null on lookup failure, so guard before reading user.logo.
+    if (win_avatar_enable) {
+        getTwitchUserData(winner_user.username).then((user) => {
+            if (user?.logo) winnerAvatar.src = user.logo;
+        }).catch((e) => console.error('avatar load failed:', e));
+    }
 
     const winnerBlock = document.getElementById('winner');
     winnerBlock.querySelector('.winner-name').innerText = winner_user['display-name'];
@@ -246,6 +246,11 @@ function handle_win(winner_user, winning_word = '') {
     const resetTimeout = (typeof restart_time !== 'undefined' ? restart_time : 20) * 1000;
     let confettiTimeout = Date.now() + (restart_time - 5) * 1000;
     if (restart_time <= 10) { confettiTimeout = Date.now() + 5 * 1000 };
+    // A non-finite restart_time makes the stop check (timeLeft <= 0) never true,
+    // leaving confetti/fireworks running forever — clamp to a short fallback.
+    if (!Number.isFinite(confettiTimeout)) { confettiTimeout = Date.now() + 5 * 1000; }
+    // Never run confetti longer than the cap, even for huge restart_time values.
+    confettiTimeout = Math.min(confettiTimeout, Date.now() + MAX_CONFETTI_MS);
     confetti_stars(confetti_win(confettiTimeout));
     if (window.innerWidth > 1200) {
         confetti_fireworks(confettiTimeout);
@@ -300,13 +305,15 @@ async function resetRoundTimeout(time) {
 function reset_round() {
     last_words_container.innerHTML = '';
     best_match_container.innerHTML = '';
-    tip_menu_button.style.display = 'block';
+    stop_confetti();
+    // The tip mechanic only exists on backends that expose a hint endpoint.
+    tip_menu_button.style.display = backend_supports_tips() ? 'block' : 'none';
     checked_words.clear();
     roundStartTime = Date.now();
     uniqUsers.clear();
     uniqWords = repeatWords = 0;
     reset_tips();
-    best_found_distance = kontekstno_api_tips_max_distance;
+    best_found_distance = backend_max_distance();
     markOverlayActivity();
 }
 

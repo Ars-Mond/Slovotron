@@ -25,7 +25,7 @@ function create_chat_connection(channel_name = '') {
 
         // проверка на подсказку, дальше не идем
         if (message.toLowerCase().startsWith('!подска') || message.toLowerCase().startsWith('! подска')) {
-            use_tip(user['username']);
+            if (backend_supports_tips()) use_tip(user['username']);
             return;
         }
 
@@ -84,10 +84,17 @@ function create_chat_connection(channel_name = '') {
 }
 
 async function runQueue() {
-    await process_message(wordQueue[0].user, wordQueue[0].color, wordQueue[0].msg)
-    wordQueue.shift()
-    if (wordQueue.length > 0) {
-        runQueue()
+    // Always shift the processed item, even if process_message throws.
+    // Otherwise the queue stalls forever and chat messages stop being handled.
+    while (wordQueue.length > 0) {
+        const { user, color, msg } = wordQueue[0];
+        try {
+            await process_message(user, color, msg);
+        } catch (e) {
+            console.error('process_message failed:', e);
+        } finally {
+            wordQueue.shift();
+        }
     }
 }
 
@@ -102,7 +109,7 @@ async function app() {
 
             // получение секретного слова для отгадывания
             secret_word_id = await generate_secret_word();
-            console.log('ID секретного слова: ', secret_word_id);
+            console.log('Ключ игры: ', secret_word_id);
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
                 secret_word: current_secret_word_data?.secret_word || null

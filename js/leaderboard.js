@@ -3,7 +3,18 @@ const LEADERBOARD_KEY = 'word_game_leaderboard';
 
 function getLeaderboardData() {
     const data = localStorage.getItem(LEADERBOARD_KEY);
-    return data ? JSON.parse(data) : {};
+    if (!data) return {};
+    try {
+        const parsed = JSON.parse(data);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        // Corrupted or legacy non-object value: drop it so we don't re-parse garbage every call.
+        localStorage.removeItem(LEADERBOARD_KEY);
+        return {};
+    } catch (e) {
+        console.error('Failed to parse leaderboard data, resetting:', e);
+        localStorage.removeItem(LEADERBOARD_KEY);
+        return {};
+    }
 }
 
 function saveLeaderboardData(data) {
