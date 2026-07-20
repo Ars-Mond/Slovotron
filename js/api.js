@@ -236,6 +236,9 @@ const GAME_BACKENDS = {
 
         async createGame() {
             const data = await wordgun_request('/games', { method: 'POST' });
+            if (!data?.token) {
+                throw new Error('Wordgun API не вернул токен игры');
+            }
             // Wordgun never reveals the secret word, so it stays null.
             return { gameId: data.token, secretWord: null };
         },
